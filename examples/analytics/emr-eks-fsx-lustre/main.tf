@@ -45,7 +45,6 @@ locals {
     Blueprint  = local.name
     GithubRepo = "github.com/aws-ia/terraform-aws-eks-blueprints"
   })
-
 }
 
 #---------------------------------------------------------------
@@ -57,8 +56,8 @@ module "eks_blueprints" {
   cluster_name    = local.name
   cluster_version = var.eks_cluster_version
 
-  vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_subnets
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnets
 
   cluster_endpoint_private_access = true # if true, Kubernetes API requests within your cluster's VPC (such as node to control plane communication) use the private VPC endpoint
   cluster_endpoint_public_access  = true # if true, Your cluster API server is accessible from the internet. You can, optionally, limit the CIDR blocks that can access the public endpoint.
@@ -360,7 +359,6 @@ module "eks_blueprints_kubernetes_addons" {
   }
 
   tags = local.tags
-
 }
 
 #---------------------------------------------------------------
