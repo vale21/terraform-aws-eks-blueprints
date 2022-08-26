@@ -102,14 +102,59 @@ module "eks_blueprints_kubernetes_addons" {
   eks_oidc_provider    = module.eks_blueprints.oidc_provider
   eks_cluster_version  = module.eks_blueprints.eks_cluster_version
 
+  enable_aws_efs_csi_driver = true
+
   enable_nvflare = true
   nvflare_helm_config = {
     timeout = 180 # fail fast
-    # Here we are using the same image for both `overseer` and `server` for simplicity
-    overseer_image_repository = var.image_repository
-    overseer_image_tag        = var.image_tag
-    server_image_repository   = var.image_repository
-    server_image_tag          = var.image_tag
+    set = [
+      {
+        name  = "image.repository"
+        value = var.image_repository
+        }, {
+        name  = "image.tag"
+        value = var.image_tag
+      },
+      {
+        name  = "efsStorageClass.fileSystemId"
+        value = aws_efs_file_system.this.id
+      },
+    ]
+  }
+
+  tags = local.tags
+}
+
+#---------------------------------------------------------------
+# Fileshare for configs/keys/etc.
+#---------------------------------------------------------------
+
+resource "aws_efs_file_system" "this" {
+  creation_token = local.name
+  encrypted      = true
+
+  tags = local.tags
+}
+
+resource "aws_efs_mount_target" "this" {
+  count = length(module.vpc.private_subnets)
+
+  file_system_id  = aws_efs_file_system.this.id
+  subnet_id       = module.vpc.private_subnets[count.index]
+  security_groups = [aws_security_group.this.id]
+}
+
+resource "aws_security_group" "this" {
+  name        = "${local.name}-efs"
+  description = "EFS security group"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "NFS access from private subnets"
+    cidr_blocks = module.vpc.private_subnets_cidr_blocks
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
   }
 
   tags = local.tags
@@ -118,6 +163,7 @@ module "eks_blueprints_kubernetes_addons" {
 #---------------------------------------------------------------
 # Supporting Resources
 #---------------------------------------------------------------
+
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 3.0"
